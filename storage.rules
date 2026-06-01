@@ -1,0 +1,15 @@
+rules_version = '2';
+
+// Uploaded signature images. Owner-only write; public read so the images
+// render inside email clients (Gmail, Outlook, etc.).
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{uid}/images/{imageId} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
