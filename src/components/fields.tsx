@@ -74,13 +74,20 @@ export function ColorField({
   return (
     <Field label={label}>
       <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-9 w-9 shrink-0 cursor-pointer rounded-md border border-input bg-background p-1"
-          aria-label={label}
-        />
+        {/* Full-bleed color chip: the swatch fills the box, the native picker
+            sits invisibly on top so it reads as a solid color, not an empty box. */}
+        <span
+          className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md border border-input shadow-sm"
+          style={{ backgroundColor: value }}
+        >
+          <input
+            type="color"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            aria-label={label}
+          />
+        </span>
         <Input
           value={value}
           onChange={(e) => onChange(e.target.value)}

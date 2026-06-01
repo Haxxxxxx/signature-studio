@@ -135,6 +135,37 @@ function contactBlock(sig: Sig): string {
   )}</tbody></table>`;
 }
 
+/** User-defined extra rows (label + value, optional link). */
+function extrasBlock(sig: Sig): string {
+  const { style: st } = sig;
+  const rows = sig.customFields
+    .filter((f) => f.label.trim() || f.value.trim())
+    .map((f) => {
+      const val = f.url && f.url.trim()
+        ? `<a href="${escapeHtml(trackedUrl(f.url, sig.tracking))}"${targetAttr(
+            trackedUrl(f.url, sig.tracking)
+          )} style="${s({ color: st.textColor, "text-decoration": "none" })}">${escapeHtml(
+            f.value
+          )}</a>`
+        : escapeHtml(f.value);
+      return `<tr><td style="${s({
+        "font-size": `${st.fontSize - 1}px`,
+        color: st.mutedColor,
+        "padding-top": "2px",
+        "line-height": "1.4",
+      })}">${
+        f.label.trim()
+          ? `<span style="${s({ color: st.primaryColor, "font-weight": "bold" })}">${escapeHtml(
+              f.label
+            )}</span>&nbsp;`
+          : ""
+      }${val}</td></tr>`;
+    })
+    .join("");
+  if (!rows) return "";
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tbody>${rows}</tbody></table>`;
+}
+
 function socialBlock(sig: Sig, topPad = 10): string {
   const { social, style: st } = sig;
   const links = social.filter((l: SocialLink) => l.url.trim());
@@ -245,13 +276,16 @@ function disclaimerBlock(sig: Sig): string {
 }
 
 function vDivider(st: SignatureStyle): string {
-  if (!st.showDivider) return `<td style="width:18px">&nbsp;</td>`;
-  return `<td style="${s({
-    width: "1px",
-    "background-color": st.dividerColor,
+  const gap = Math.max(0, st.dividerSpacing ?? 16);
+  if (!st.showDivider) return `<td style="width:${gap + 2}px">&nbsp;</td>`;
+  const w = Math.max(1, st.dividerWidth || 1);
+  // border-left supports solid/dashed/dotted (a background fill can't be dashed).
+  return `<td style="width:${gap}px">&nbsp;</td><td style="${s({
+    "border-left": `${w}px ${st.dividerStyle || "solid"} ${st.dividerColor}`,
     "font-size": "1px",
     "line-height": "1px",
-  })}" width="1">&nbsp;</td><td style="width:18px">&nbsp;</td>`;
+    width: "1px",
+  })}">&nbsp;</td><td style="width:${gap}px">&nbsp;</td>`;
 }
 
 /* -------------------------------- templates -------------------------------- */
@@ -413,6 +447,8 @@ function blockHtml(sig: Sig, id: string): string {
       return bannerInner(sig);
     case "qr":
       return qrBlock(sig);
+    case "extras":
+      return extrasBlock(sig);
     case "disclaimer":
       return disclaimerInner(sig);
     default:
@@ -420,17 +456,73 @@ function blockHtml(sig: Sig, id: string): string {
   }
 }
 
+/** A full-width horizontal rule honoring divider color/width/style. */
+function hRule(st: SignatureStyle): string {
+  const w = Math.max(1, st.dividerWidth || 1);
+  return `<div style="${s({
+    "border-top": `${w}px ${st.dividerStyle || "solid"} ${st.dividerColor}`,
+    "font-size": "1px",
+    "line-height": "1px",
+  })}"></div>`;
+}
+
+/** Stack a list of block ids into spaced rows; optional horizontal dividers. */
+function stackBlocks(sig: Sig, ids: string[], gap: number, withDividers = false): string {
+  const pieces = ids.map((id) => blockHtml(sig, id)).filter((html) => html.trim());
+  return pieces
+    .map((html, i) => {
+      if (i === 0) return `<tr><td>${html}</td></tr>`;
+      if (withDividers) {
+        const dGap = Math.max(0, sig.style.dividerSpacing ?? 12);
+        return `<tr><td style="padding-top:${dGap}px;padding-bottom:${dGap}px">${hRule(
+          sig.style
+        )}</td></tr><tr><td>${html}</td></tr>`;
+      }
+      return `<tr><td style="padding-top:${gap}px">${html}</td></tr>`;
+    })
+    .join("");
+}
+
+/** Wrap content in a bordered accent card (used by Card + Custom-with-border). */
+function cardWrap(st: SignatureStyle, innerTable: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="${s(
+    {
+      "border-collapse": "separate",
+      border: `1px solid ${st.dividerColor}`,
+      "border-left": `4px solid ${st.primaryColor}`,
+      "border-radius": "10px",
+    }
+  )}"><tbody><tr><td style="padding:16px 18px">${innerTable}</td></tr></tbody></table>`;
+}
+
 function renderCustom(sig: Sig): string {
   const { style: st } = sig;
   const gap = Math.max(6, st.spacing * 2 + 4);
-  const pieces = st.blocks
-    .filter((b) => b.enabled)
-    .map((b) => blockHtml(sig, b.id))
-    .filter((html) => html.trim());
-  const rows = pieces
-    .map((html, i) => `<tr><td style="padding-top:${i === 0 ? 0 : gap}px">${html}</td></tr>`)
-    .join("");
-  return wrapRoot(st, rows);
+  const enabled = st.blocks.filter((b) => b.enabled).map((b) => b.id);
+
+  let body: string;
+  if (st.customOrientation === "horizontal") {
+    // Photo (if enabled & present) sits left; everything else stacks right.
+    const hasPhoto = enabled.includes("photo") && photoCell(sig).trim();
+    const rest = stackBlocks(sig, enabled.filter((id) => id !== "photo"), gap);
+    const restTable = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tbody>${rest}</tbody></table>`;
+    const inner = `<tr>${
+      hasPhoto
+        ? `<td valign="top" style="padding-right:0">${photoCell(sig)}</td>${vDivider(st)}`
+        : ""
+    }<td valign="top">${restTable}</td></tr>`;
+    body = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tbody>${inner}</tbody></table>`;
+  } else {
+    body = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tbody>${stackBlocks(
+      sig,
+      enabled,
+      gap,
+      sig.style.showDivider
+    )}</tbody></table>`;
+  }
+
+  const wrapped = st.customBorder ? cardWrap(st, body) : body;
+  return wrapRoot(st, `<tr><td>${wrapped}</td></tr>`);
 }
 
 /* --------------------------------- public ---------------------------------- */

@@ -1,5 +1,16 @@
-import { BlockId, DEFAULT_BLOCK_ORDER, LayoutBlock, Signature, SocialLink } from "./types";
+import {
+  BlockId,
+  CustomField,
+  DEFAULT_BLOCK_ORDER,
+  LayoutBlock,
+  Signature,
+  SocialLink,
+} from "./types";
 import { uid } from "./utils";
+
+export function createCustomField(): CustomField {
+  return { id: uid("fld"), label: "", value: "", url: "" };
+}
 
 /** Keep a saved block order but append any newly-introduced blocks at the end. */
 function mergeBlocks(saved?: LayoutBlock[]): LayoutBlock[] {
@@ -32,6 +43,7 @@ export function normalizeSignature(raw: Partial<Signature>): Signature {
     banner: { ...base.banner, ...raw.banner },
     style: { ...base.style, ...raw.style, blocks: mergeBlocks(raw.style?.blocks) },
     tracking: { ...base.tracking, ...raw.tracking },
+    customFields: Array.isArray(raw.customFields) ? raw.customFields : base.customFields,
     disclaimer: raw.disclaimer ?? "",
     vcardQr: raw.vcardQr ?? false,
     customHtml: raw.customHtml ?? null,
@@ -54,31 +66,31 @@ export function createDefaultSignature(overrides: Partial<Signature> = {}): Sign
     id: uid("sig"),
     name: "My Signature",
     fields: {
-      fullName: "Pauline Mila-Alonso",
-      jobTitle: "Founder & CEO",
-      company: "Theia Labs",
+      fullName: "Charles Vincent",
+      jobTitle: "Co-founder & CTO",
+      company: "ClipHow",
       department: "",
       phone: "",
-      mobile: "+1 (555) 123-4567",
-      email: "pauline@theia.io",
-      website: "theia.io",
-      address: "San Francisco, CA",
+      mobile: "+33 6 12 34 56 78",
+      email: "charles@cliphow.com",
+      website: "cliphow.com",
+      address: "France",
     },
     photo: {
-      url: "",
+      url: "https://cliphow.com/favicon.png",
       kind: "avatar",
-      size: 90,
-      shape: "circle",
+      size: 72,
+      shape: "rounded",
     },
     social: [
-      { id: uid("soc"), platform: "linkedin", url: "linkedin.com/in/pauline" },
-      { id: uid("soc"), platform: "x", url: "x.com/pauline" },
+      { id: uid("soc"), platform: "linkedin", url: "linkedin.com/in/charles-vincent123" },
+      { id: uid("soc"), platform: "custom", url: "linkedin.com/company/cliphow", label: "ClipHow" },
     ],
     cta: {
       enabled: false,
-      text: "Book a meeting",
-      url: "https://cal.com/pauline",
-      bgColor: "#4f46e5",
+      text: "Book a demo",
+      url: "https://cliphow.com",
+      bgColor: "#2eaf96",
       textColor: "#ffffff",
       rounded: true,
     },
@@ -90,17 +102,22 @@ export function createDefaultSignature(overrides: Partial<Signature> = {}): Sign
     },
     style: {
       template: "horizontal",
-      primaryColor: "#4f46e5",
+      primaryColor: "#2eaf96",
       textColor: "#1f2937",
       mutedColor: "#6b7280",
       fontFamily: "Arial, Helvetica, sans-serif",
       fontSize: 14,
       showDivider: true,
       dividerColor: "#e5e7eb",
+      dividerWidth: 1,
+      dividerStyle: "solid",
+      dividerSpacing: 16,
       spacing: 4,
       socialStyle: "iconColor",
       socialIconSize: 22,
       blocks: DEFAULT_BLOCK_ORDER.map((b) => ({ ...b })),
+      customOrientation: "horizontal",
+      customBorder: false,
     },
     tracking: {
       enabled: false,
@@ -108,6 +125,7 @@ export function createDefaultSignature(overrides: Partial<Signature> = {}): Sign
       medium: "email",
       campaign: "",
     },
+    customFields: [],
     disclaimer: "",
     vcardQr: false,
     customHtml: null,

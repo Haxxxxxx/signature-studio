@@ -17,7 +17,7 @@ export default function BuilderPage() {
   return (
     <>
       <AppInit />
-      <div className="flex min-h-screen flex-col bg-background lg:h-screen lg:overflow-hidden">
+      <div className="flex min-h-screen flex-col bg-background lg:fixed lg:inset-0 lg:min-h-0 lg:overflow-hidden">
         {/* Header */}
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
           <div className="flex items-center gap-3">
@@ -42,7 +42,7 @@ export default function BuilderPage() {
             Loading…
           </div>
         ) : (
-          <main className="grid flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(420px,1fr)_minmax(420px,1.1fr)] lg:overflow-hidden">
+          <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(420px,1fr)_minmax(420px,1.1fr)] lg:grid-rows-1 lg:overflow-hidden">
             {/* Editor */}
             <section className="flex min-h-0 flex-col rounded-2xl border bg-card p-4 shadow-sm lg:overflow-hidden">
               <Editor />

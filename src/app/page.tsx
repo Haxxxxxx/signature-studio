@@ -92,15 +92,15 @@ export default function Landing() {
           <div className="mx-auto mt-14 max-w-xl rounded-2xl border bg-card p-6 text-left shadow-xl">
             <div className="mb-3 h-1 w-16 rounded-full bg-gradient-to-r from-primary to-sky-500" />
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-sky-500 text-xl font-bold text-white">
-                MC
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#a7e0a0] to-[#2eaf96] text-xl font-bold text-white">
+                CV
               </div>
               <div className="min-w-0">
-                <p className="text-base font-bold text-foreground">Marcus Chen</p>
-                <p className="text-sm text-muted-foreground">Chief Technology Officer · Engineering</p>
-                <p className="text-sm font-semibold text-primary">Nimbus Cloud</p>
+                <p className="text-base font-bold text-foreground">Charles Vincent</p>
+                <p className="text-sm text-muted-foreground">Co-founder &amp; CTO</p>
+                <p className="text-sm font-semibold text-[#2eaf96]">ClipHow</p>
                 <p className="mt-1.5 truncate text-xs text-muted-foreground">
-                  marcus@nimbus.cloud · nimbus.cloud · San Francisco, CA
+                  charles@cliphow.com · cliphow.com · France
                 </p>
               </div>
             </div>

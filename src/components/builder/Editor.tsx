@@ -27,7 +27,11 @@ import { ImageField } from "@/components/ImageField";
 import { TemplateGallery } from "./TemplateGallery";
 import { SocialEditor } from "./SocialEditor";
 import { LayoutEditor } from "./LayoutEditor";
-import { User, Palette, Share2, Settings2 } from "lucide-react";
+import { CustomFieldsEditor } from "./CustomFieldsEditor";
+import { renderSignatureHtml } from "@/lib/templates/render";
+import { Button } from "@/components/ui/button";
+import { RotateCcw } from "lucide-react";
+import { User, Palette, Share2, Settings2, Check } from "lucide-react";
 
 const TABS = ["content", "design", "social", "advanced"];
 
@@ -69,7 +73,7 @@ export function Editor() {
         </TabsTrigger>
       </TabsList>
 
-      <div className="scroll-thin mt-4 flex-1 overflow-y-auto pr-1">
+      <div className="scroll-thin mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
         {/* CONTENT ------------------------------------------------------- */}
         <TabsContent value="content" className="mt-0 space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -118,12 +122,38 @@ export function Editor() {
           </Field>
 
           {sig.style.template === "custom" && (
-            <Field label="Section order" hint="Drag the order, toggle blocks on/off — your structure, your way.">
-              <LayoutEditor
-                blocks={sig.style.blocks}
-                onChange={(blocks) => setStyle("blocks", blocks)}
-              />
-            </Field>
+            <div className="space-y-4 rounded-lg border border-primary/30 bg-accent/30 p-3">
+              <div className="grid grid-cols-2 gap-3">
+                <PillGroup<SignatureStyle["customOrientation"]>
+                  label="Orientation"
+                  value={sig.style.customOrientation}
+                  onChange={(v) => setStyle("customOrientation", v)}
+                  options={[
+                    { value: "horizontal", label: "Horizontal" },
+                    { value: "vertical", label: "Vertical" },
+                  ]}
+                />
+                <div className="flex items-end justify-between rounded-md border bg-card px-3 py-1.5">
+                  <Label className="text-sm text-foreground">Colored border</Label>
+                  <Switch
+                    checked={sig.style.customBorder}
+                    onCheckedChange={(v) => setStyle("customBorder", v)}
+                  />
+                </div>
+              </div>
+              <Field label="Section order" hint="Drag the order, toggle blocks on/off — your structure, your way.">
+                <LayoutEditor
+                  blocks={sig.style.blocks}
+                  onChange={(blocks) => setStyle("blocks", blocks)}
+                />
+              </Field>
+              <Field label="Custom fields" hint="Extra rows — appear via the “Custom fields” block above.">
+                <CustomFieldsEditor
+                  fields={sig.customFields}
+                  onChange={(customFields) => update((s) => ({ ...s, customFields }))}
+                />
+              </Field>
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
@@ -162,12 +192,16 @@ export function Editor() {
                         },
                       }))
                     }
-                    className={
-                      "flex h-8 w-8 items-center justify-center rounded-full ring-offset-2 ring-offset-card transition-all cursor-pointer hover:scale-110 " +
-                      (active ? "ring-2 ring-foreground" : "")
-                    }
-                    style={{ backgroundColor: p.primary }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-border/40 transition-transform cursor-pointer hover:scale-110"
+                    style={{
+                      backgroundColor: p.primary,
+                      // Inset rings stay inside the circle — never clipped by neighbors.
+                      boxShadow: active
+                        ? "inset 0 0 0 2px #fff, inset 0 0 0 4px rgba(0,0,0,0.28)"
+                        : undefined,
+                    }}
                   >
+                    {active && <Check className="h-3.5 w-3.5 text-white drop-shadow" />}
                     <span className="sr-only">{p.name}</span>
                   </button>
                 );
@@ -187,7 +221,26 @@ export function Editor() {
               <Switch checked={sig.style.showDivider} onCheckedChange={(v) => setStyle("showDivider", v)} />
             </div>
             {sig.style.showDivider && (
-              <ColorField label="Divider color" value={sig.style.dividerColor} onChange={(v) => setStyle("dividerColor", v)} />
+              <>
+                <ColorField label="Divider color" value={sig.style.dividerColor} onChange={(v) => setStyle("dividerColor", v)} />
+                <div className="grid grid-cols-2 gap-3">
+                  <RangeField label="Thickness" value={sig.style.dividerWidth} min={1} max={6} onChange={(v) => setStyle("dividerWidth", v)} />
+                  <RangeField label="Spacing around" value={sig.style.dividerSpacing} min={0} max={40} onChange={(v) => setStyle("dividerSpacing", v)} />
+                </div>
+                <PillGroup<SignatureStyle["dividerStyle"]>
+                  label="Style"
+                  value={sig.style.dividerStyle}
+                  onChange={(v) => setStyle("dividerStyle", v)}
+                  options={[
+                    { value: "solid", label: "Solid" },
+                    { value: "dashed", label: "Dashed" },
+                    { value: "dotted", label: "Dotted" },
+                  ]}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  The divider shows on Horizontal, Card &amp; Custom (horizontal) layouts.
+                </p>
+              </>
             )}
           </div>
         </TabsContent>
@@ -329,18 +382,45 @@ export function Editor() {
                   update((s) => ({
                     ...s,
                     customHtmlEnabled: v,
-                    customHtml: v && s.customHtml == null ? "" : s.customHtml,
+                    // Seed the editor with the live generated HTML so you start
+                    // from the real markup instead of a blank box.
+                    customHtml:
+                      v && (s.customHtml == null || s.customHtml.trim() === "")
+                        ? renderSignatureHtml({ ...s, customHtmlEnabled: false })
+                        : s.customHtml,
                   }))
                 }
               />
             </div>
             {sig.customHtmlEnabled && (
-              <Textarea
-                className="min-h-[160px] font-mono text-xs"
-                value={sig.customHtml ?? ""}
-                placeholder="<table>…</table>"
-                onChange={(e) => update((s) => ({ ...s, customHtml: e.target.value }))}
-              />
+              <>
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-muted-foreground">
+                    Edit the raw HTML — inline styles only for email safety.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7"
+                    onClick={() =>
+                      update((s) => ({
+                        ...s,
+                        customHtml: renderSignatureHtml({ ...s, customHtmlEnabled: false }),
+                      }))
+                    }
+                  >
+                    <RotateCcw /> Load from design
+                  </Button>
+                </div>
+                <Textarea
+                  className="min-h-[280px] font-mono text-xs leading-relaxed"
+                  spellCheck={false}
+                  value={sig.customHtml ?? ""}
+                  placeholder="<table>…</table>"
+                  onChange={(e) => update((s) => ({ ...s, customHtml: e.target.value }))}
+                />
+              </>
             )}
           </div>
         </TabsContent>

@@ -30,7 +30,7 @@ for (const t of TEMPLATES) {
   const html = renderSignatureHtml(sig);
   check(
     `template "${t.id}"`,
-    html.includes("<table") && html.includes("Pauline") && !html.includes("undefined"),
+    html.includes("<table") && html.includes("Charles Vincent") && !html.includes("undefined"),
     html.slice(0, 60)
   );
 }
@@ -128,8 +128,8 @@ customSig.style.blocks = [
   { id: "social", enabled: true },
 ];
 const customHtml = renderSignatureHtml(customSig);
-check("custom renders enabled blocks", customHtml.includes("Pauline") && customHtml.includes("<table"));
-check("custom omits disabled contact", !customHtml.includes(">E<") || !customHtml.includes("pauline@theia.io"));
+check("custom renders enabled blocks", customHtml.includes("Charles Vincent") && customHtml.includes("<table"));
+check("custom omits disabled contact", !customHtml.includes(">E<") || !customHtml.includes("charles@cliphow.com"));
 const templateIds: TemplateId[] = TEMPLATES.map((t) => t.id);
 check("6 templates registered (incl. custom)", templateIds.length === 6 && templateIds.includes("custom"));
 
@@ -139,6 +139,30 @@ linkSig.cta = { ...linkSig.cta, enabled: true };
 const linkHtml = renderSignatureHtml(linkSig);
 check("external links have target=_blank", linkHtml.includes('target="_blank"'));
 check("mailto not target-blanked", !/mailto:[^"]*"\s+target/.test(linkHtml));
+
+console.log("\n14. Custom layout — orientation, border, custom fields");
+const cf = createDefaultSignature();
+cf.style.template = "custom";
+cf.style.customBorder = true;
+cf.style.customOrientation = "horizontal";
+cf.customFields = [{ id: "x", label: "Pronouns", value: "he/him" }];
+const cfHtml = renderSignatureHtml(cf);
+check("border wrap present", cfHtml.includes("border-left:4px solid"));
+check("custom field renders", cfHtml.includes("Pronouns") && cfHtml.includes("he/him"));
+const cfLink = createDefaultSignature();
+cfLink.style.template = "custom";
+cfLink.customFields = [{ id: "y", label: "Book", value: "calendly", url: "calendly.com/charles" }];
+check(
+  "custom field link works",
+  renderSignatureHtml(cfLink).includes("https://calendly.com/charles")
+);
+
+console.log("\n15. Default signature = Charles Vincent / ClipHow");
+const def = createDefaultSignature();
+check("default name", def.fields.fullName === "Charles Vincent");
+check("default company", def.fields.company === "ClipHow");
+check("default logo is cliphow favicon", def.photo.url.includes("cliphow.com/favicon.png"));
+check("default linkedin profile", def.social.some((s) => s.url.includes("charles-vincent123")));
 
 console.log(`\n${"=".repeat(40)}\nRESULT: ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

@@ -21,7 +21,17 @@ export type BlockId =
   | "cta"
   | "banner"
   | "qr"
+  | "extras"
   | "disclaimer";
+
+/** A user-defined extra row (e.g. "Pronouns", "Booking", "Skype"). */
+export interface CustomField {
+  id: string;
+  label: string;
+  value: string;
+  /** Optional link — when set, the value becomes a hyperlink. */
+  url?: string;
+}
 
 export interface LayoutBlock {
   id: BlockId;
@@ -36,6 +46,7 @@ export const BLOCK_LABELS: Record<BlockId, string> = {
   cta: "Call-to-action",
   banner: "Promo banner",
   qr: "vCard QR code",
+  extras: "Custom fields",
   disclaimer: "Legal disclaimer",
 };
 
@@ -43,6 +54,7 @@ export const DEFAULT_BLOCK_ORDER: LayoutBlock[] = [
   { id: "photo", enabled: true },
   { id: "identity", enabled: true },
   { id: "contact", enabled: true },
+  { id: "extras", enabled: true },
   { id: "social", enabled: true },
   { id: "cta", enabled: true },
   { id: "banner", enabled: true },
@@ -127,9 +139,12 @@ export interface SignatureStyle {
   mutedColor: string; // secondary text (title/company)
   fontFamily: string; // email-safe stack
   fontSize: number; // base px
-  /** Show 1px divider between photo block and text block. */
+  /** Show a divider between photo block and text block. */
   showDivider: boolean;
   dividerColor: string;
+  dividerWidth: number; // px thickness
+  dividerStyle: "solid" | "dashed" | "dotted";
+  dividerSpacing: number; // px gap around the divider
   /** Spacing scale, px between rows. */
   spacing: number;
   /** Render social as colored icons vs text links. */
@@ -137,6 +152,10 @@ export interface SignatureStyle {
   socialIconSize: number;
   /** Block order + visibility, honored by the "custom" template. */
   blocks: LayoutBlock[];
+  /** Custom template only: stack vertically or place photo beside content. */
+  customOrientation: "vertical" | "horizontal";
+  /** Custom template only: wrap the signature in a bordered card with accent bar. */
+  customBorder: boolean;
 }
 
 export interface Signature {
@@ -150,6 +169,7 @@ export interface Signature {
   banner: Banner;
   style: SignatureStyle;
   tracking: TrackingConfig;
+  customFields: CustomField[];
   disclaimer: string;
   /** vCard QR toggle — encodes contact details as a scannable QR. */
   vcardQr: boolean;
@@ -203,6 +223,7 @@ export const BRAND_PALETTES: {
   muted: string;
   divider: string;
 }[] = [
+  { name: "ClipHow", primary: "#2eaf96", text: "#1f2937", muted: "#6b7280", divider: "#e5e7eb" },
   { name: "Indigo", primary: "#4f46e5", text: "#1f2937", muted: "#6b7280", divider: "#e5e7eb" },
   { name: "Sky", primary: "#0ea5e9", text: "#0f172a", muted: "#64748b", divider: "#e2e8f0" },
   { name: "Emerald", primary: "#059669", text: "#14241e", muted: "#5b6b64", divider: "#dce7e2" },
