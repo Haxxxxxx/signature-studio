@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Signatures are private to their owner.
+// Layout: users/{uid}/signatures/{signatureId}
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/signatures/{signatureId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

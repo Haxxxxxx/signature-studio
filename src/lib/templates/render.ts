@@ -1,0 +1,473 @@
+import { Signature, SignatureStyle, SocialLink, SOCIAL_META } from "../types";
+import { escapeHtml } from "../utils";
+import { socialIconColorUrl, socialIconMonoUrl } from "./icons";
+import { vcardQrUrl } from "./vcard";
+import { trackedUrl } from "./utm";
+
+/**
+ * Email signature renderer.
+ *
+ * Produces table-based HTML with fully inline styles — the only thing that
+ * survives across Gmail, Outlook and Apple Mail. No <style> blocks, no flexbox,
+ * no SVG, no data-URI images. Width-controlled with nested tables.
+ */
+
+type Sig = Signature;
+
+const FONT_FALLBACK = "Arial, Helvetica, sans-serif";
+
+function s(style: Record<string, string | number | undefined>): string {
+  return Object.entries(style)
+    .filter(([, v]) => v !== undefined && v !== "")
+    .map(([k, v]) => `${k}:${v}`)
+    .join(";");
+}
+
+/** Open http(s) links in a new tab; leave mailto:/tel: alone. */
+function targetAttr(href: string): string {
+  return /^https?:\/\//i.test(href) ? ' target="_blank" rel="noopener noreferrer"' : "";
+}
+
+function radiusFor(shape: string, size: number): string {
+  if (shape === "circle") return "50%";
+  if (shape === "rounded") return `${Math.round(size * 0.16)}px`;
+  return "0";
+}
+
+/* ---------------------------------- pieces --------------------------------- */
+
+function photoCell(sig: Sig): string {
+  const { photo } = sig;
+  if (!photo.url) return "";
+  return `<img src="${escapeHtml(photo.url)}" width="${photo.size}" height="${
+    photo.kind === "logo" ? "" : photo.size
+  }" alt="${escapeHtml(sig.fields.fullName || sig.fields.company)}" style="${s({
+    display: "block",
+    "border-radius": radiusFor(photo.shape, photo.size),
+    width: `${photo.size}px`,
+    height: photo.kind === "logo" ? "auto" : `${photo.size}px`,
+    "object-fit": "cover",
+    border: "0",
+    outline: "none",
+    "text-decoration": "none",
+  })}" />`;
+}
+
+function nameBlock(sig: Sig): string {
+  const { fields: f, style: st } = sig;
+  const parts: string[] = [];
+  if (f.fullName) {
+    parts.push(
+      `<div style="${s({
+        "font-size": `${st.fontSize + 5}px`,
+        "font-weight": "bold",
+        color: st.textColor,
+        "line-height": "1.2",
+        "padding-bottom": "2px",
+      })}">${escapeHtml(f.fullName)}</div>`
+    );
+  }
+  const titleLine = [f.jobTitle, f.department].filter(Boolean).join(" · ");
+  if (titleLine) {
+    parts.push(
+      `<div style="${s({
+        "font-size": `${st.fontSize}px`,
+        color: st.mutedColor,
+        "line-height": "1.3",
+      })}">${escapeHtml(titleLine)}</div>`
+    );
+  }
+  if (f.company) {
+    parts.push(
+      `<div style="${s({
+        "font-size": `${st.fontSize}px`,
+        "font-weight": "bold",
+        color: st.primaryColor,
+        "line-height": "1.3",
+        "padding-top": "1px",
+      })}">${escapeHtml(f.company)}</div>`
+    );
+  }
+  return parts.join("");
+}
+
+function contactRow(label: string, value: string, href: string, st: SignatureStyle): string {
+  return `<tr><td style="${s({
+    "font-size": `${st.fontSize - 1}px`,
+    color: st.mutedColor,
+    "padding-top": "2px",
+    "line-height": "1.4",
+    "white-space": "nowrap",
+  })}"><span style="${s({ color: st.primaryColor, "font-weight": "bold" })}">${escapeHtml(
+    label
+  )}</span>&nbsp;<a href="${escapeHtml(href)}"${targetAttr(href)} style="${s({
+    color: st.textColor,
+    "text-decoration": "none",
+  })}">${escapeHtml(value)}</a></td></tr>`;
+}
+
+function contactBlock(sig: Sig): string {
+  const { fields: f, style: st } = sig;
+  const rows: string[] = [];
+  if (f.phone) rows.push(contactRow("T", f.phone, `tel:${f.phone.replace(/\s+/g, "")}`, st));
+  if (f.mobile) rows.push(contactRow("M", f.mobile, `tel:${f.mobile.replace(/\s+/g, "")}`, st));
+  if (f.email) rows.push(contactRow("E", f.email, `mailto:${f.email}`, st));
+  if (f.website) {
+    const display = f.website.replace(/^https?:\/\//, "");
+    rows.push(contactRow("W", display, trackedUrl(f.website, sig.tracking), st));
+  }
+  if (f.address) {
+    rows.push(
+      `<tr><td style="${s({
+        "font-size": `${st.fontSize - 1}px`,
+        color: st.mutedColor,
+        "padding-top": "2px",
+        "line-height": "1.4",
+      })}"><span style="${s({
+        color: st.primaryColor,
+        "font-weight": "bold",
+      })}">A</span>&nbsp;${escapeHtml(f.address)}</td></tr>`
+    );
+  }
+  if (!rows.length) return "";
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tbody>${rows.join(
+    ""
+  )}</tbody></table>`;
+}
+
+function socialBlock(sig: Sig, topPad = 10): string {
+  const { social, style: st } = sig;
+  const links = social.filter((l: SocialLink) => l.url.trim());
+  if (!links.length) return "";
+
+  const cells = links
+    .map((l) => {
+      const href = trackedUrl(l.url, sig.tracking);
+      const meta = SOCIAL_META[l.platform];
+      if (st.socialStyle === "text") {
+        const label = l.platform === "custom" ? l.label || "Link" : meta.label;
+        return `<td style="padding-right:12px"><a href="${escapeHtml(href)}"${targetAttr(href)} style="${s({
+          color: st.primaryColor,
+          "font-size": `${st.fontSize - 1}px`,
+          "text-decoration": "none",
+          "font-weight": "bold",
+        })}">${escapeHtml(label)}</a></td>`;
+      }
+      const iconUrl =
+        st.socialStyle === "iconColor"
+          ? socialIconColorUrl(l.platform, st.socialIconSize)
+          : socialIconMonoUrl(l.platform, st.socialIconSize);
+      return `<td style="padding-right:8px"><a href="${escapeHtml(
+        href
+      )}"${targetAttr(href)} style="text-decoration:none"><img src="${escapeHtml(iconUrl)}" width="${
+        st.socialIconSize
+      }" height="${st.socialIconSize}" alt="${escapeHtml(meta.label)}" style="${s({
+        display: "block",
+        border: "0",
+        width: `${st.socialIconSize}px`,
+        height: `${st.socialIconSize}px`,
+      })}" /></a></td>`;
+    })
+    .join("");
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="${s({
+    "border-collapse": "collapse",
+    "padding-top": `${topPad}px`,
+  })}"><tbody><tr>${cells}</tr></tbody></table>`;
+}
+
+function ctaBlock(sig: Sig): string {
+  const { cta } = sig;
+  if (!cta.enabled || !cta.text.trim()) return "";
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;padding-top:12px"><tbody><tr><td style="${s(
+    {
+      "background-color": cta.bgColor,
+      "border-radius": cta.rounded ? "6px" : "0",
+    }
+  )}"><a href="${escapeHtml(trackedUrl(cta.url, sig.tracking))}"${targetAttr(
+    trackedUrl(cta.url, sig.tracking)
+  )} style="${s({
+    display: "inline-block",
+    padding: "9px 18px",
+    color: cta.textColor,
+    "font-size": `${sig.style.fontSize}px`,
+    "font-weight": "bold",
+    "text-decoration": "none",
+    "font-family": sig.style.fontFamily || FONT_FALLBACK,
+  })}">${escapeHtml(cta.text)}</a></td></tr></tbody></table>`;
+}
+
+function bannerInner(sig: Sig): string {
+  const { banner } = sig;
+  if (!banner.enabled || !banner.imageUrl.trim()) return "";
+  const img = `<img src="${escapeHtml(banner.imageUrl)}" width="${banner.width}" alt="" style="${s(
+    {
+      display: "block",
+      "max-width": "100%",
+      width: `${banner.width}px`,
+      height: "auto",
+      border: "0",
+      "border-radius": "6px",
+    }
+  )}" />`;
+  return banner.link.trim()
+    ? `<a href="${escapeHtml(trackedUrl(banner.link, sig.tracking))}"${targetAttr(
+        trackedUrl(banner.link, sig.tracking)
+      )} style="text-decoration:none">${img}</a>`
+    : img;
+}
+
+function bannerBlock(sig: Sig): string {
+  const inner = bannerInner(sig);
+  return inner ? `<tr><td style="padding-top:14px">${inner}</td></tr>` : "";
+}
+
+function qrBlock(sig: Sig): string {
+  if (!sig.vcardQr) return "";
+  return `<img src="${escapeHtml(vcardQrUrl(sig, 92))}" width="92" height="92" alt="Scan to save contact" style="${s(
+    { display: "block", border: "0", width: "92px", height: "92px" }
+  )}" />`;
+}
+
+function disclaimerInner(sig: Sig): string {
+  if (!sig.disclaimer.trim()) return "";
+  return `<div style="${s({
+    "font-size": "11px",
+    color: "#9aa0a6",
+    "line-height": "1.4",
+    "max-width": "520px",
+  })}">${escapeHtml(sig.disclaimer).replace(/\n/g, "<br/>")}</div>`;
+}
+
+function disclaimerBlock(sig: Sig): string {
+  const inner = disclaimerInner(sig);
+  return inner ? `<tr><td style="padding-top:12px">${inner}</td></tr>` : "";
+}
+
+function vDivider(st: SignatureStyle): string {
+  if (!st.showDivider) return `<td style="width:18px">&nbsp;</td>`;
+  return `<td style="${s({
+    width: "1px",
+    "background-color": st.dividerColor,
+    "font-size": "1px",
+    "line-height": "1px",
+  })}" width="1">&nbsp;</td><td style="width:18px">&nbsp;</td>`;
+}
+
+/* -------------------------------- templates -------------------------------- */
+
+function wrapRoot(st: SignatureStyle, inner: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="${s({
+    "border-collapse": "collapse",
+    "font-family": st.fontFamily || FONT_FALLBACK,
+    color: st.textColor,
+    "font-size": `${st.fontSize}px`,
+  })}"><tbody>${inner}</tbody></table>`;
+}
+
+function detailsStack(sig: Sig): string {
+  return [
+    nameBlock(sig),
+    `<div style="padding-top:6px">${contactBlock(sig)}</div>`,
+    socialBlock(sig),
+    ctaBlock(sig),
+  ]
+    .filter(Boolean)
+    .join("");
+}
+
+function renderHorizontal(sig: Sig): string {
+  const { style: st } = sig;
+  const photo = photoCell(sig);
+  const qr = qrBlock(sig);
+  const left = photo
+    ? `<td valign="top" style="padding-right:0">${photo}${
+        qr ? `<div style="padding-top:10px">${qr}</div>` : ""
+      }</td>${vDivider(st)}`
+    : "";
+  const main = `<tr>${left}<td valign="top">${detailsStack(sig)}</td>${
+    !photo && qr ? `<td valign="top" style="padding-left:18px">${qr}</td>` : ""
+  }</tr>`;
+  return wrapRoot(
+    st,
+    `<tr><td><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tbody>${main}</tbody></table></td></tr>${bannerBlock(
+      sig
+    )}${disclaimerBlock(sig)}`
+  );
+}
+
+function renderVertical(sig: Sig): string {
+  const { style: st } = sig;
+  const photo = photoCell(sig);
+  const rows = [
+    photo && `<tr><td style="padding-bottom:10px">${photo}</td></tr>`,
+    `<tr><td>${nameBlock(sig)}</td></tr>`,
+    `<tr><td style="padding-top:6px">${contactBlock(sig)}</td></tr>`,
+    sig.vcardQr && `<tr><td style="padding-top:10px">${qrBlock(sig)}</td></tr>`,
+    `<tr><td>${socialBlock(sig)}</td></tr>`,
+    `<tr><td>${ctaBlock(sig)}</td></tr>`,
+    bannerBlock(sig),
+    disclaimerBlock(sig),
+  ]
+    .filter(Boolean)
+    .join("");
+  return wrapRoot(st, rows);
+}
+
+function renderCard(sig: Sig): string {
+  const { style: st } = sig;
+  const photo = photoCell(sig);
+  const inner = `<tr>${
+    photo ? `<td valign="top" style="padding-right:16px">${photo}</td>` : ""
+  }<td valign="top">${detailsStack(sig)}</td>${
+    sig.vcardQr ? `<td valign="top" style="padding-left:16px">${qrBlock(sig)}</td>` : ""
+  }</tr>`;
+  const card = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="${s(
+    {
+      "border-collapse": "separate",
+      border: `1px solid ${st.dividerColor}`,
+      "border-left": `4px solid ${st.primaryColor}`,
+      "border-radius": "10px",
+    }
+  )}"><tbody><tr><td style="padding:16px 18px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tbody>${inner}</tbody></table></td></tr></tbody></table>`;
+  return wrapRoot(
+    st,
+    `<tr><td>${card}</td></tr>${bannerBlock(sig)}${disclaimerBlock(sig)}`
+  );
+}
+
+function renderMinimal(sig: Sig): string {
+  const { fields: f, style: st } = sig;
+  const line = [f.jobTitle, f.company].filter(Boolean).join(", ");
+  const contacts = [
+    f.mobile || f.phone,
+    f.email,
+    f.website?.replace(/^https?:\/\//, ""),
+  ].filter(Boolean);
+  const rows = [
+    f.fullName &&
+      `<tr><td style="${s({
+        "font-size": `${st.fontSize + 3}px`,
+        "font-weight": "bold",
+        color: st.textColor,
+      })}">${escapeHtml(f.fullName)}</td></tr>`,
+    line &&
+      `<tr><td style="${s({
+        "font-size": `${st.fontSize}px`,
+        color: st.mutedColor,
+        "padding-top": "2px",
+      })}">${escapeHtml(line)}</td></tr>`,
+    contacts.length &&
+      `<tr><td style="${s({
+        "font-size": `${st.fontSize - 1}px`,
+        color: st.primaryColor,
+        "padding-top": "4px",
+      })}">${contacts.map((c) => escapeHtml(c!)).join("&nbsp;&nbsp;•&nbsp;&nbsp;")}</td></tr>`,
+    `<tr><td>${socialBlock(sig, 8)}</td></tr>`,
+    `<tr><td>${ctaBlock(sig)}</td></tr>`,
+    bannerBlock(sig),
+    disclaimerBlock(sig),
+  ]
+    .filter(Boolean)
+    .join("");
+  return wrapRoot(st, rows);
+}
+
+function renderModern(sig: Sig): string {
+  const { style: st } = sig;
+  const photo = photoCell(sig);
+  const accent = `<tr><td colspan="2" style="${s({
+    height: "3px",
+    "background-color": st.primaryColor,
+    "font-size": "1px",
+    "line-height": "1px",
+    "border-radius": "2px",
+  })}">&nbsp;</td></tr><tr><td colspan="2" style="height:14px;font-size:1px;line-height:1px">&nbsp;</td></tr>`;
+  const body = `<tr>${
+    photo ? `<td valign="top" style="padding-right:20px">${photo}</td>` : ""
+  }<td valign="top">${detailsStack(sig)}</td>${
+    sig.vcardQr ? `<td valign="top" style="padding-left:20px">${qrBlock(sig)}</td>` : ""
+  }</tr>`;
+  return wrapRoot(
+    st,
+    `<tr><td><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tbody>${accent}${body}</tbody></table></td></tr>${bannerBlock(
+      sig
+    )}${disclaimerBlock(sig)}`
+  );
+}
+
+/** Inner HTML for a single block — used by the custom (assemble-your-own) layout. */
+function blockHtml(sig: Sig, id: string): string {
+  switch (id) {
+    case "photo":
+      return photoCell(sig);
+    case "identity":
+      return nameBlock(sig);
+    case "contact":
+      return contactBlock(sig);
+    case "social":
+      return socialBlock(sig, 0);
+    case "cta":
+      return ctaBlock(sig);
+    case "banner":
+      return bannerInner(sig);
+    case "qr":
+      return qrBlock(sig);
+    case "disclaimer":
+      return disclaimerInner(sig);
+    default:
+      return "";
+  }
+}
+
+function renderCustom(sig: Sig): string {
+  const { style: st } = sig;
+  const gap = Math.max(6, st.spacing * 2 + 4);
+  const pieces = st.blocks
+    .filter((b) => b.enabled)
+    .map((b) => blockHtml(sig, b.id))
+    .filter((html) => html.trim());
+  const rows = pieces
+    .map((html, i) => `<tr><td style="padding-top:${i === 0 ? 0 : gap}px">${html}</td></tr>`)
+    .join("");
+  return wrapRoot(st, rows);
+}
+
+/* --------------------------------- public ---------------------------------- */
+
+/** Render a signature to an email-safe HTML fragment (a single <table>). */
+export function renderSignatureHtml(sig: Sig): string {
+  if (sig.customHtmlEnabled && sig.customHtml != null) {
+    return sig.customHtml;
+  }
+  switch (sig.style.template) {
+    case "vertical":
+      return renderVertical(sig);
+    case "card":
+      return renderCard(sig);
+    case "minimal":
+      return renderMinimal(sig);
+    case "modern":
+      return renderModern(sig);
+    case "custom":
+      return renderCustom(sig);
+    case "horizontal":
+    default:
+      return renderHorizontal(sig);
+  }
+}
+
+/** Wrap the fragment in a full HTML document (for .html download / preview). */
+export function renderFullDocument(sig: Sig): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${escapeHtml(sig.name)}</title>
+</head>
+<body style="margin:0;padding:24px;background:#f3f4f6">
+${renderSignatureHtml(sig)}
+</body>
+</html>`;
+}
