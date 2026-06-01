@@ -64,12 +64,13 @@ export const PRESETS: Preset[] = [
         ...base,
         social: [createSocialLink("linkedin"), createSocialLink("instagram")],
         cta: {
+          ...base.cta,
           enabled: true,
           text: "See what's new",
           url: "https://example.com/launch",
           bgColor: "#e11d48",
           textColor: "#ffffff",
-          rounded: true,
+          borderColor: "#e11d48",
         },
         tracking: {
           enabled: true,
@@ -118,12 +119,13 @@ export const PRESETS: Preset[] = [
         ...base,
         social: [createSocialLink("linkedin")],
         cta: {
+          ...base.cta,
           enabled: true,
           text: "Book a call",
           url: "https://cal.com/you",
           bgColor: "#059669",
           textColor: "#ffffff",
-          rounded: true,
+          borderColor: "#059669",
         },
         style: {
           ...base.style,

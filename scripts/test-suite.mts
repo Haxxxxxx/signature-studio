@@ -164,5 +164,23 @@ check("default company", def.fields.company === "ClipHow");
 check("default logo is cliphow favicon", def.photo.url.includes("cliphow.com/favicon.png"));
 check("default linkedin profile", def.social.some((s) => s.url.includes("charles-vincent123")));
 
+console.log("\n16. CTA variants render");
+const ctaSig = createDefaultSignature();
+ctaSig.cta = { ...ctaSig.cta, enabled: true, variant: "outline", borderColor: "#e11d48", bgColor: "#e11d48", radius: 20, align: "center", fullWidth: true };
+const ctaHtml = renderSignatureHtml(ctaSig);
+check("outline cta has border", ctaHtml.includes("solid #e11d48"));
+check("cta radius applied", ctaHtml.includes("border-radius:20px"));
+check("cta full width", ctaHtml.includes("width:100%"));
+
+console.log("\n17. Figma URL parsing + contact icons");
+const { parseFigmaUrl } = await import("../src/lib/figma");
+const fp = parseFigmaUrl("https://www.figma.com/design/Ii7tQrAZUJgTGwQ2cLxpvu/Templates?node-id=2-337&m=dev");
+check("parses fileKey", fp?.fileKey === "Ii7tQrAZUJgTGwQ2cLxpvu");
+check("parses + normalizes nodeId", fp?.nodeId === "2:337");
+check("rejects non-figma / no node", parseFigmaUrl("https://example.com") === null);
+const iconSig = createDefaultSignature();
+iconSig.style.contactStyle = "icons";
+check("contact icons render img", renderSignatureHtml(iconSig).includes("img.icons8.com/ios-glyphs"));
+
 console.log(`\n${"=".repeat(40)}\nRESULT: ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

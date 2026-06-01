@@ -114,7 +114,16 @@ export interface CallToAction {
   url: string;
   bgColor: string;
   textColor: string;
-  rounded: boolean;
+  rounded: boolean; // legacy; superseded by `radius`
+  /** Visual treatment of the button. */
+  variant: "filled" | "outline" | "soft";
+  radius: number; // corner radius px
+  size: "sm" | "md" | "lg";
+  borderColor: string;
+  borderWidth: number;
+  fullWidth: boolean;
+  bold: boolean;
+  align: "left" | "center" | "right";
 }
 
 export interface Banner {
@@ -150,6 +159,8 @@ export interface SignatureStyle {
   /** Render social as colored icons vs text links. */
   socialStyle: "icon" | "iconColor" | "text";
   socialIconSize: number;
+  /** Contact rows: letter labels (T/M/E/W/A) or small glyph icons. */
+  contactStyle: "letters" | "icons";
   /** Block order + visibility, honored by the "custom" template. */
   blocks: LayoutBlock[];
   /** Custom template only: stack vertically or place photo beside content. */

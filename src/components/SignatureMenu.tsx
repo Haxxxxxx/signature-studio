@@ -13,6 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NewSignatureDialog } from "@/components/builder/NewSignatureDialog";
+import { FigmaImportDialog } from "@/components/builder/FigmaImportDialog";
+import { Frame } from "lucide-react";
 import {
   ChevronDown,
   Plus,
@@ -30,6 +32,7 @@ export function SignatureMenu() {
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const [presetOpen, setPresetOpen] = React.useState(false);
+  const [figmaOpen, setFigmaOpen] = React.useState(false);
 
   if (!active) return null;
 
@@ -80,6 +83,9 @@ export function SignatureMenu() {
             <DropdownMenuItem onClick={() => newSignature()}>
               <Plus /> Blank signature
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setTimeout(() => setFigmaOpen(true), 0)}>
+              <Frame /> Import from Figma
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => duplicate(active.id)}>
               <Copy /> Duplicate
             </DropdownMenuItem>
@@ -111,6 +117,7 @@ export function SignatureMenu() {
       )}
 
       <NewSignatureDialog open={presetOpen} onOpenChange={setPresetOpen} />
+      <FigmaImportDialog open={figmaOpen} onOpenChange={setFigmaOpen} />
     </div>
   );
 }

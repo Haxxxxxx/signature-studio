@@ -215,6 +215,16 @@ export function Editor() {
             <ColorField label="Muted" value={sig.style.mutedColor} onChange={(v) => setStyle("mutedColor", v)} />
           </div>
 
+          <PillGroup<SignatureStyle["contactStyle"]>
+            label="Contact rows"
+            value={sig.style.contactStyle}
+            onChange={(v) => setStyle("contactStyle", v)}
+            options={[
+              { value: "letters", label: "Letters (T/E/W)" },
+              { value: "icons", label: "Icons" },
+            ]}
+          />
+
           <div className="rounded-lg border bg-card p-3 space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-sm text-foreground">Show divider</Label>
@@ -279,13 +289,59 @@ export function Editor() {
                   <TextField label="Button text" value={sig.cta.text} onChange={(v) => setCta({ text: v })} />
                   <TextField label="Button URL" value={sig.cta.url} onChange={(v) => setCta({ url: v })} />
                 </div>
+                <PillGroup<Signature["cta"]["variant"]>
+                  label="Style"
+                  value={sig.cta.variant}
+                  onChange={(v) => setCta({ variant: v })}
+                  options={[
+                    { value: "filled", label: "Filled" },
+                    { value: "outline", label: "Outline" },
+                    { value: "soft", label: "Soft" },
+                  ]}
+                />
                 <div className="grid grid-cols-2 gap-3">
-                  <ColorField label="Background" value={sig.cta.bgColor} onChange={(v) => setCta({ bgColor: v })} />
-                  <ColorField label="Text color" value={sig.cta.textColor} onChange={(v) => setCta({ textColor: v })} />
+                  <ColorField label={sig.cta.variant === "filled" ? "Background" : "Accent"} value={sig.cta.bgColor} onChange={(v) => setCta({ bgColor: v, borderColor: v })} />
+                  {sig.cta.variant === "filled" ? (
+                    <ColorField label="Text color" value={sig.cta.textColor} onChange={(v) => setCta({ textColor: v })} />
+                  ) : (
+                    <ColorField label="Border color" value={sig.cta.borderColor} onChange={(v) => setCta({ borderColor: v })} />
+                  )}
                 </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm text-foreground">Rounded corners</Label>
-                  <Switch checked={sig.cta.rounded} onCheckedChange={(v) => setCta({ rounded: v })} />
+                <div className="grid grid-cols-2 gap-3">
+                  <PillGroup<Signature["cta"]["size"]>
+                    label="Size"
+                    value={sig.cta.size}
+                    onChange={(v) => setCta({ size: v })}
+                    options={[
+                      { value: "sm", label: "S" },
+                      { value: "md", label: "M" },
+                      { value: "lg", label: "L" },
+                    ]}
+                  />
+                  <RangeField label="Corner radius" value={sig.cta.radius} min={0} max={28} onChange={(v) => setCta({ radius: v })} />
+                </div>
+                {sig.cta.variant !== "outline" && (
+                  <RangeField label="Border width" value={sig.cta.borderWidth} min={0} max={4} onChange={(v) => setCta({ borderWidth: v })} />
+                )}
+                <PillGroup<Signature["cta"]["align"]>
+                  label="Alignment"
+                  value={sig.cta.align}
+                  onChange={(v) => setCta({ align: v })}
+                  options={[
+                    { value: "left", label: "Left" },
+                    { value: "center", label: "Center" },
+                    { value: "right", label: "Right" },
+                  ]}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center justify-between rounded-md border bg-card px-3 py-1.5">
+                    <Label className="text-sm text-foreground">Full width</Label>
+                    <Switch checked={sig.cta.fullWidth} onCheckedChange={(v) => setCta({ fullWidth: v })} />
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border bg-card px-3 py-1.5">
+                    <Label className="text-sm text-foreground">Bold</Label>
+                    <Switch checked={sig.cta.bold} onCheckedChange={(v) => setCta({ bold: v })} />
+                  </div>
                 </div>
               </>
             )}

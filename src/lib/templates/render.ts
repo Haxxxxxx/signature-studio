@@ -91,44 +91,64 @@ function nameBlock(sig: Sig): string {
   return parts.join("");
 }
 
-function contactRow(label: string, value: string, href: string, st: SignatureStyle): string {
+type ContactKind = "phone" | "mobile" | "email" | "website" | "address";
+
+const CONTACT_GLYPH: Record<ContactKind, string> = {
+  phone: "phone",
+  mobile: "iphone",
+  email: "email",
+  website: "domain",
+  address: "marker",
+};
+const CONTACT_LETTER: Record<ContactKind, string> = {
+  phone: "T",
+  mobile: "M",
+  email: "E",
+  website: "W",
+  address: "A",
+};
+
+/** Leading marker for a contact row — a glyph icon or a letter label. */
+function contactLead(kind: ContactKind, st: SignatureStyle): string {
+  if (st.contactStyle === "icons") {
+    const px = Math.max(13, st.fontSize - 1);
+    return `<img src="https://img.icons8.com/ios-glyphs/60/${CONTACT_GLYPH[kind]}.png" width="${px}" height="${px}" alt="" style="display:inline-block;vertical-align:middle;margin-right:7px;border:0;width:${px}px;height:${px}px" />`;
+  }
+  return `<span style="${s({ color: st.primaryColor, "font-weight": "bold" })}">${CONTACT_LETTER[kind]}</span>&nbsp;`;
+}
+
+function contactRow(
+  kind: ContactKind,
+  value: string,
+  href: string | null,
+  st: SignatureStyle
+): string {
+  const inner = href
+    ? `<a href="${escapeHtml(href)}"${targetAttr(href)} style="${s({
+        color: st.textColor,
+        "text-decoration": "none",
+      })}">${escapeHtml(value)}</a>`
+    : escapeHtml(value);
   return `<tr><td style="${s({
     "font-size": `${st.fontSize - 1}px`,
     color: st.mutedColor,
-    "padding-top": "2px",
+    "padding-top": "3px",
     "line-height": "1.4",
-    "white-space": "nowrap",
-  })}"><span style="${s({ color: st.primaryColor, "font-weight": "bold" })}">${escapeHtml(
-    label
-  )}</span>&nbsp;<a href="${escapeHtml(href)}"${targetAttr(href)} style="${s({
-    color: st.textColor,
-    "text-decoration": "none",
-  })}">${escapeHtml(value)}</a></td></tr>`;
+    "white-space": kind === "address" ? "normal" : "nowrap",
+  })}">${contactLead(kind, st)}${inner}</td></tr>`;
 }
 
 function contactBlock(sig: Sig): string {
   const { fields: f, style: st } = sig;
   const rows: string[] = [];
-  if (f.phone) rows.push(contactRow("T", f.phone, `tel:${f.phone.replace(/\s+/g, "")}`, st));
-  if (f.mobile) rows.push(contactRow("M", f.mobile, `tel:${f.mobile.replace(/\s+/g, "")}`, st));
-  if (f.email) rows.push(contactRow("E", f.email, `mailto:${f.email}`, st));
+  if (f.phone) rows.push(contactRow("phone", f.phone, `tel:${f.phone.replace(/\s+/g, "")}`, st));
+  if (f.mobile) rows.push(contactRow("mobile", f.mobile, `tel:${f.mobile.replace(/\s+/g, "")}`, st));
+  if (f.email) rows.push(contactRow("email", f.email, `mailto:${f.email}`, st));
   if (f.website) {
     const display = f.website.replace(/^https?:\/\//, "");
-    rows.push(contactRow("W", display, trackedUrl(f.website, sig.tracking), st));
+    rows.push(contactRow("website", display, trackedUrl(f.website, sig.tracking), st));
   }
-  if (f.address) {
-    rows.push(
-      `<tr><td style="${s({
-        "font-size": `${st.fontSize - 1}px`,
-        color: st.mutedColor,
-        "padding-top": "2px",
-        "line-height": "1.4",
-      })}"><span style="${s({
-        color: st.primaryColor,
-        "font-weight": "bold",
-      })}">A</span>&nbsp;${escapeHtml(f.address)}</td></tr>`
-    );
-  }
+  if (f.address) rows.push(contactRow("address", f.address, null, st));
   if (!rows.length) return "";
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tbody>${rows.join(
     ""
@@ -207,25 +227,73 @@ function socialBlock(sig: Sig, topPad = 10): string {
   })}"><tbody><tr>${cells}</tr></tbody></table>`;
 }
 
+/** Lighten a hex toward white by `amount` (0..1) — for the "soft" CTA fill. */
+function tint(hex: string, amount: number): string {
+  const m = hex.replace("#", "");
+  if (m.length !== 6) return hex;
+  const mix = (c: number) => Math.round(c + (255 - c) * amount);
+  const r = mix(parseInt(m.slice(0, 2), 16));
+  const g = mix(parseInt(m.slice(2, 4), 16));
+  const b = mix(parseInt(m.slice(4, 6), 16));
+  const h = (n: number) => n.toString(16).padStart(2, "0");
+  return `#${h(r)}${h(g)}${h(b)}`;
+}
+
+const CTA_PAD: Record<string, string> = {
+  sm: "6px 14px",
+  md: "10px 20px",
+  lg: "13px 26px",
+};
+const CTA_FS: Record<string, number> = { sm: -1, md: 0, lg: 1 };
+
 function ctaBlock(sig: Sig): string {
   const { cta } = sig;
   if (!cta.enabled || !cta.text.trim()) return "";
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;padding-top:12px"><tbody><tr><td style="${s(
-    {
-      "background-color": cta.bgColor,
-      "border-radius": cta.rounded ? "6px" : "0",
-    }
-  )}"><a href="${escapeHtml(trackedUrl(cta.url, sig.tracking))}"${targetAttr(
-    trackedUrl(cta.url, sig.tracking)
-  )} style="${s({
-    display: "inline-block",
-    padding: "9px 18px",
-    color: cta.textColor,
-    "font-size": `${sig.style.fontSize}px`,
-    "font-weight": "bold",
+  const radius = `${Math.max(0, cta.radius ?? (cta.rounded ? 6 : 0))}px`;
+  const size = cta.size ?? "md";
+
+  let bg = cta.bgColor;
+  let fg = cta.textColor;
+  let border = "0";
+  if (cta.variant === "outline") {
+    bg = "transparent";
+    fg = cta.bgColor;
+    border = `${Math.max(1, cta.borderWidth ?? 1)}px solid ${cta.borderColor || cta.bgColor}`;
+  } else if (cta.variant === "soft") {
+    bg = tint(cta.bgColor, 0.85);
+    fg = cta.bgColor;
+  } else if (cta.borderWidth && cta.borderWidth > 0) {
+    border = `${cta.borderWidth}px solid ${cta.borderColor || cta.bgColor}`;
+  }
+
+  const fullWidth = cta.fullWidth;
+  const cell = s({
+    "background-color": bg,
+    "border-radius": radius,
+    border: border === "0" ? undefined : border,
+    "text-align": "center",
+  });
+  const link = s({
+    display: fullWidth ? "block" : "inline-block",
+    padding: CTA_PAD[size],
+    color: fg,
+    "font-size": `${sig.style.fontSize + CTA_FS[size]}px`,
+    "font-weight": cta.bold ? "bold" : "normal",
     "text-decoration": "none",
     "font-family": sig.style.fontFamily || FONT_FALLBACK,
-  })}">${escapeHtml(cta.text)}</a></td></tr></tbody></table>`;
+    "text-align": "center",
+  });
+  const href = trackedUrl(cta.url, sig.tracking);
+  const button = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;${
+    fullWidth ? "width:100%" : ""
+  }"><tbody><tr><td style="${cell}"><a href="${escapeHtml(href)}"${targetAttr(
+    href
+  )} style="${link}">${escapeHtml(cta.text)}</a></td></tr></tbody></table>`;
+
+  // Honor alignment via an outer wrapper.
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;padding-top:12px;width:${
+    fullWidth ? "100%" : "auto"
+  }"><tbody><tr><td align="${cta.align ?? "left"}">${button}</td></tr></tbody></table>`;
 }
 
 function bannerInner(sig: Sig): string {
