@@ -182,5 +182,16 @@ const iconSig = createDefaultSignature();
 iconSig.style.contactStyle = "icons";
 check("contact icons render img", renderSignatureHtml(iconSig).includes("img.icons8.com/ios-glyphs"));
 
+console.log("\n18. Company logo slot");
+const logoSig = createDefaultSignature();
+logoSig.logo = { url: "https://example.com/logo.png", width: 120, link: "https://example.com" };
+const logoHtml = renderSignatureHtml(logoSig);
+check("logo renders in horizontal", logoHtml.includes("https://example.com/logo.png"));
+check("logo is linked", logoHtml.includes("https://example.com") && logoHtml.includes("target=\"_blank\""));
+const noLogo = createDefaultSignature();
+noLogo.logo = { url: "", width: 120, link: "" };
+check("empty logo renders fine", renderSignatureHtml(noLogo).includes("Charles Vincent"));
+check("logo backfilled on migrate", !!normalizeSignature({ id: "x", style: {} }).logo);
+
 console.log(`\n${"=".repeat(40)}\nRESULT: ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

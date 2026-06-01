@@ -111,17 +111,21 @@ export function mapExtractionToSignature(ex: FigmaExtraction): {
     .filter((c): c is string => !!c && !isColorful(c))
     .sort((a, b) => (hexToHsl(a)?.l ?? 1) - (hexToHsl(b)?.l ?? 1))[0];
 
-  // Pick the avatar/logo image: prefer round, then most square, leftmost.
+  // Split images: a portrait/round one → avatar photo; a wide one → company logo.
   const imgs = [...ex.images].filter((i) => i.url);
-  imgs.sort((a, b) => {
-    if (a.round !== b.round) return a.round ? -1 : 1;
-    const sq = (i: FigmaImage) => Math.abs(i.width / i.height - 1);
-    return sq(a) - sq(b) || a.x - b.x;
-  });
-  const photo = imgs[0] ?? null;
+  const aspect = (i: FigmaImage) => i.width / i.height;
+  const portraits = imgs
+    .filter((i) => i.round || aspect(i) < 1.4)
+    .sort((a, b) => {
+      if (a.round !== b.round) return a.round ? -1 : 1;
+      return Math.abs(aspect(a) - 1) - Math.abs(aspect(b) - 1) || a.x - b.x;
+    });
+  const wides = imgs.filter((i) => !i.round && aspect(i) >= 1.4).sort((a, b) => b.x - a.x);
+  const photo = portraits[0] ?? null;
+  const logoImg = wides[0] ?? (portraits[1] ?? null);
   if (ex.images.length > imgs.length) notes.push("Some images couldn't be resolved.");
-  if (imgs.length > 1) notes.push(`${imgs.length} images found — used the best fit as the photo/logo.`);
-  if (photo) notes.push("Images use temporary Figma URLs — re-upload (or paste a hosted URL) so they show in Gmail.");
+  if (photo || logoImg)
+    notes.push("Images use temporary Figma URLs — re-upload (or paste a hosted URL) so they show in Gmail.");
 
   const base = createDefaultSignature({ name: ex.name || "Imported from Figma" });
   const signature: Signature = {
@@ -141,11 +145,14 @@ export function mapExtractionToSignature(ex: FigmaExtraction): {
     photo: photo
       ? {
           url: photo.url!,
-          kind: photo.round || Math.abs(photo.width / photo.height - 1) < 0.3 ? "avatar" : "logo",
+          kind: "avatar" as const,
           size: 80,
-          shape: photo.round ? "circle" : "rounded",
+          shape: photo.round ? ("circle" as const) : ("rounded" as const),
         }
       : { ...base.photo, url: "" },
+    logo: logoImg
+      ? { url: logoImg.url!, width: Math.min(160, Math.max(80, logoImg.width)), link: "" }
+      : { ...base.logo },
     social: [],
     style: {
       ...base.style,

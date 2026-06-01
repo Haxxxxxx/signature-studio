@@ -51,6 +51,8 @@ export function Editor() {
     update((s) => ({ ...s, style: { ...s.style, [key]: value } }));
   const setPhoto = (p: Partial<Signature["photo"]>) =>
     update((s) => ({ ...s, photo: { ...s.photo, ...p } }));
+  const setLogo = (l: Partial<Signature["logo"]>) =>
+    update((s) => ({ ...s, logo: { ...s.logo, ...l } }));
   const setCta = (c: Partial<Signature["cta"]>) =>
     update((s) => ({ ...s, cta: { ...s.cta, ...c } }));
   const setBanner = (b: Partial<Signature["banner"]>) =>
@@ -112,6 +114,20 @@ export function Editor() {
               />
             </div>
             <RangeField label="Image size" value={sig.photo.size} min={48} max={160} onChange={(size) => setPhoto({ size })} />
+          </div>
+
+          <div className="rounded-lg border bg-card p-3 space-y-3">
+            <Label className="text-sm text-foreground">Company logo</Label>
+            <p className="-mt-1 text-[11px] text-muted-foreground">
+              Separate from the avatar — sits on the right (or as its own block).
+            </p>
+            <ImageField label="Logo image" value={sig.logo.url} onChange={(url) => setLogo({ url })} />
+            {sig.logo.url && (
+              <div className="grid grid-cols-2 gap-3">
+                <RangeField label="Logo width" value={sig.logo.width} min={48} max={240} step={4} onChange={(width) => setLogo({ width })} />
+                <TextField label="Logo link" value={sig.logo.link} onChange={(link) => setLogo({ link })} placeholder="https://…" />
+              </div>
+            )}
           </div>
         </TabsContent>
 

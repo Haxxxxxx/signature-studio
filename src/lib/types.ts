@@ -15,6 +15,7 @@ export type TemplateId =
 /** The reorderable building blocks of a signature (used by the Custom template). */
 export type BlockId =
   | "photo"
+  | "logo"
   | "identity"
   | "contact"
   | "social"
@@ -39,7 +40,8 @@ export interface LayoutBlock {
 }
 
 export const BLOCK_LABELS: Record<BlockId, string> = {
-  photo: "Photo / Logo",
+  photo: "Photo / Avatar",
+  logo: "Company logo",
   identity: "Name, title & company",
   contact: "Contact details",
   social: "Social icons",
@@ -52,6 +54,7 @@ export const BLOCK_LABELS: Record<BlockId, string> = {
 
 export const DEFAULT_BLOCK_ORDER: LayoutBlock[] = [
   { id: "photo", enabled: true },
+  { id: "logo", enabled: true },
   { id: "identity", enabled: true },
   { id: "contact", enabled: true },
   { id: "extras", enabled: true },
@@ -133,6 +136,13 @@ export interface Banner {
   width: number; // px
 }
 
+/** Dedicated company logo (distinct from the avatar photo) — sits to the side. */
+export interface CompanyLogo {
+  url: string;
+  width: number; // px
+  link: string;
+}
+
 export interface TrackingConfig {
   /** Append UTM params to every external (http/https) link. */
   enabled: boolean;
@@ -175,6 +185,7 @@ export interface Signature {
   name: string;
   fields: SignatureFields;
   photo: SignaturePhoto;
+  logo: CompanyLogo;
   social: SocialLink[];
   cta: CallToAction;
   banner: Banner;

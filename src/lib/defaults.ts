@@ -38,6 +38,7 @@ export function normalizeSignature(raw: Partial<Signature>): Signature {
     name: raw.name ?? base.name,
     fields: { ...base.fields, ...raw.fields },
     photo: { ...base.photo, ...raw.photo },
+    logo: { ...base.logo, ...raw.logo },
     social: Array.isArray(raw.social) ? raw.social : base.social,
     cta: { ...base.cta, ...raw.cta },
     banner: { ...base.banner, ...raw.banner },
@@ -82,6 +83,7 @@ export function createDefaultSignature(overrides: Partial<Signature> = {}): Sign
       size: 72,
       shape: "rounded",
     },
+    logo: { url: "", width: 120, link: "" },
     social: [
       { id: uid("soc"), platform: "linkedin", url: "linkedin.com/in/charles-vincent123" },
       { id: uid("soc"), platform: "custom", url: "linkedin.com/company/cliphow", label: "ClipHow" },

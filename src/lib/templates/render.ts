@@ -321,6 +321,32 @@ function bannerBlock(sig: Sig): string {
   return inner ? `<tr><td style="padding-top:14px">${inner}</td></tr>` : "";
 }
 
+function logoInner(sig: Sig): string {
+  const { logo } = sig;
+  if (!logo?.url?.trim()) return "";
+  const img = `<img src="${escapeHtml(logo.url)}" width="${logo.width}" alt="${escapeHtml(
+    sig.fields.company
+  )}" style="${s({
+    display: "block",
+    "max-width": "100%",
+    width: `${logo.width}px`,
+    height: "auto",
+    border: "0",
+  })}" />`;
+  return logo.link.trim()
+    ? `<a href="${escapeHtml(trackedUrl(logo.link, sig.tracking))}"${targetAttr(
+        trackedUrl(logo.link, sig.tracking)
+      )} style="text-decoration:none">${img}</a>`
+    : img;
+}
+
+/** Right-hand divider + logo cell, used by photo-left templates. */
+function rightLogoCell(sig: Sig): string {
+  const logo = logoInner(sig);
+  if (!logo) return "";
+  return `${vDivider(sig.style)}<td valign="middle">${logo}</td>`;
+}
+
 function qrBlock(sig: Sig): string {
   if (!sig.vcardQr) return "";
   return `<img src="${escapeHtml(vcardQrUrl(sig, 92))}" width="92" height="92" alt="Scan to save contact" style="${s(
@@ -387,7 +413,7 @@ function renderHorizontal(sig: Sig): string {
         qr ? `<div style="padding-top:10px">${qr}</div>` : ""
       }</td>${vDivider(st)}`
     : "";
-  const main = `<tr>${left}<td valign="top">${detailsStack(sig)}</td>${
+  const main = `<tr>${left}<td valign="top">${detailsStack(sig)}</td>${rightLogoCell(sig)}${
     !photo && qr ? `<td valign="top" style="padding-left:18px">${qr}</td>` : ""
   }</tr>`;
   return wrapRoot(
@@ -401,10 +427,17 @@ function renderHorizontal(sig: Sig): string {
 function renderVertical(sig: Sig): string {
   const { style: st } = sig;
   const photo = photoCell(sig);
+  const logo = logoInner(sig);
   const rows = [
+    logo && `<tr><td style="padding-bottom:12px">${logo}</td></tr>`,
     photo && `<tr><td style="padding-bottom:10px">${photo}</td></tr>`,
     `<tr><td>${nameBlock(sig)}</td></tr>`,
     `<tr><td style="padding-top:6px">${contactBlock(sig)}</td></tr>`,
+    st.showDivider &&
+      `<tr><td style="padding-top:${Math.max(0, st.dividerSpacing ?? 12)}px;padding-bottom:${Math.max(
+        0,
+        st.dividerSpacing ?? 12
+      )}px">${hRule(st)}</td></tr>`,
     sig.vcardQr && `<tr><td style="padding-top:10px">${qrBlock(sig)}</td></tr>`,
     `<tr><td>${socialBlock(sig)}</td></tr>`,
     `<tr><td>${ctaBlock(sig)}</td></tr>`,
@@ -421,7 +454,7 @@ function renderCard(sig: Sig): string {
   const photo = photoCell(sig);
   const inner = `<tr>${
     photo ? `<td valign="top" style="padding-right:16px">${photo}</td>` : ""
-  }<td valign="top">${detailsStack(sig)}</td>${
+  }<td valign="top">${detailsStack(sig)}</td>${rightLogoCell(sig)}${
     sig.vcardQr ? `<td valign="top" style="padding-left:16px">${qrBlock(sig)}</td>` : ""
   }</tr>`;
   const card = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="${s(
@@ -467,6 +500,7 @@ function renderMinimal(sig: Sig): string {
       })}">${contacts.map((c) => escapeHtml(c!)).join("&nbsp;&nbsp;•&nbsp;&nbsp;")}</td></tr>`,
     `<tr><td>${socialBlock(sig, 8)}</td></tr>`,
     `<tr><td>${ctaBlock(sig)}</td></tr>`,
+    logoInner(sig) && `<tr><td style="padding-top:12px">${logoInner(sig)}</td></tr>`,
     bannerBlock(sig),
     disclaimerBlock(sig),
   ]
@@ -478,16 +512,16 @@ function renderMinimal(sig: Sig): string {
 function renderModern(sig: Sig): string {
   const { style: st } = sig;
   const photo = photoCell(sig);
-  const accent = `<tr><td colspan="2" style="${s({
+  const accent = `<tr><td colspan="9" style="${s({
     height: "3px",
     "background-color": st.primaryColor,
     "font-size": "1px",
     "line-height": "1px",
     "border-radius": "2px",
-  })}">&nbsp;</td></tr><tr><td colspan="2" style="height:14px;font-size:1px;line-height:1px">&nbsp;</td></tr>`;
+  })}">&nbsp;</td></tr><tr><td colspan="9" style="height:14px;font-size:1px;line-height:1px">&nbsp;</td></tr>`;
   const body = `<tr>${
-    photo ? `<td valign="top" style="padding-right:20px">${photo}</td>` : ""
-  }<td valign="top">${detailsStack(sig)}</td>${
+    photo ? `<td valign="top">${photo}</td>${vDivider(st)}` : ""
+  }<td valign="top">${detailsStack(sig)}</td>${rightLogoCell(sig)}${
     sig.vcardQr ? `<td valign="top" style="padding-left:20px">${qrBlock(sig)}</td>` : ""
   }</tr>`;
   return wrapRoot(
@@ -503,6 +537,8 @@ function blockHtml(sig: Sig, id: string): string {
   switch (id) {
     case "photo":
       return photoCell(sig);
+    case "logo":
+      return logoInner(sig);
     case "identity":
       return nameBlock(sig);
     case "contact":
